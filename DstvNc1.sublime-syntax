@@ -1,0 +1,219 @@
+%YAML 1.2
+---
+# See http://www.sublimetext.com/docs/3/syntax.html
+file_extensions:
+  - nc1
+scope: source.nc1
+
+variables:
+  version8comment: |-
+    (?x:
+      SENDER-SYSTEM-RELEASE|
+      SENDER-SYSTEM|
+      SENDER-FIRMA|
+      SENDER-USER|
+      EINZELTEILNR|
+      POSITIONIERUNG|
+      AUSSENRADIUS|
+      FERTIGUNGSART
+    )
+
+  number: (?:[0-9]+\.[0-9]+)
+  numbercap: ([0-9]+\.[0-9]+)
+  numbernpcap: ([0-9\.]+)
+
+contexts:
+  # The prototype context is prepended to all contexts but those setting
+  # meta_include_prototype: false.
+  prototype:
+    - include: comments
+
+  main:
+    # The main context is the initial starting point of our syntax.
+    # Include other contexts from here (or specify them directly).
+    - include: select-section
+
+  select-section:
+    - match: '\bST\b'
+      scope: keyword.context.nc1
+      push: start-section
+
+    - match: '\bBO\b'
+      scope: keyword.context.nc1
+      push: bore-section
+
+    - match: '\b(PU|KO)\b'
+      scope: keyword.context.nc1
+      push: mark-section
+
+    - match: '\bSI\b'
+      scope: keyword.context.nc1
+      push: num-section
+
+    - match: '\b(A|I)K\b'
+      scope: keyword.context.nc1
+      push: contour-section
+
+    - match: '\b(SC|TO|UE)\b'
+      scope: keyword.context.nc1
+      push: numerical-section
+
+    - match: '\bEN\b'
+      scope: keyword.context.nc1
+
+  newline-pop:
+    - match: $\n
+      pop: 1
+
+  bore-section:
+    - match: '^(?=[^ ]|.[^ ])'
+      pop: 1
+
+    - match: '[vouhsglm]'
+      scope: keyword.other.nc1
+
+    - include: numbers
+
+  mark-section:
+    - match: '^(?=[^ ]|.[^ ])'
+      pop: 1
+
+    - match: '[vouhs]'
+      scope: keyword.other.nc1
+
+    - include: numbers
+
+  num-section:
+    - match: '^(?=[^ ]|.[^ ])'
+      pop: 1
+
+    #                          xxxx.xx             qqqq.qq     ww.ww     hhhrText
+    - match: '^\s*([ ovuh])\s*{{numbercap}}([ osu])\s*{{numbercap}}\s+{{numbercap}}\s+{{numbernpcap}}([ rz])?'
+      captures:
+        1: keyword.other.nc1
+        2: constant.numeric.nc1
+        3: keyword.other.nc1
+        4: constant.numeric.nc1
+        5: constant.numeric.nc1
+        6: constant.numeric.nc1
+        7: keyword.other.nc1
+      push: string-line
+
+    - match: '[vouhs]'
+      scope: keyword.other.nc1
+
+    - match: '[rz]'
+      scope: keyword.other.nc1
+      push: string-line
+
+    - include: numbers
+
+  contour-section:
+    - match: '^(?=[^ ]|.[^ ])'
+      pop: 1
+
+    # these lines are treated as comments and don't apply to the rest
+    - match: (.*[tw].*)
+      scope: comment.line.nc1
+
+    - match: '[vouhs]'
+      scope: keyword.other.nc1
+
+    - include: numbers
+
+  numerical-section:
+    - match: '^(?=[^ ]|.[^ ])'
+      pop: 1
+
+    - match: '[vouh]'
+      scope: keyword.other.nc1
+
+    - include: numbers
+
+  start-section:
+    - match: $\n
+      set:
+        - string-line # 4 lines of notes at the end
+        - string-line
+        - string-line
+        - string-line
+        - number-line # 12 lines of profile details etc
+        - number-line
+        - number-line
+        - number-line
+        - number-line
+        - number-line
+        - number-line
+        - number-line
+        - number-line
+        - number-line
+        - number-line
+        - number-line
+        - profiletype-line # profile type
+        - string-line # profile
+        - integer-line # qty
+        - string-line # material
+        - integer-line # piece
+        - string-line # phase
+        - string-line # drawing
+        - string-line # order
+
+  number-line:
+    - match: '{{number}}'
+      scope: constant.numeric.nc1
+    - include: newline-pop
+
+  integer-line:
+    - match: '[0-9]+'
+      scope: constant.numeric.nc1
+    - include: newline-pop
+
+  profiletype-line:
+    - match: '\b(?:I|L|U|B|RU|RO|M|C|T|SO)\b'
+      scope: constant.language.nc1
+
+    - match: '\w'
+      scope: invalid.illegal.invalid-profile.nc1
+
+    - include: newline-pop
+
+  string-line:
+    - match: '.*'
+      scope: string.unquoted.nc1
+    - include: newline-pop
+
+  keywords:
+    # Keywords are if, else for and while.
+    # Note that blackslashes don't need to be escaped within single quoted
+    # strings in YAML. When using single quoted strings, only single quotes
+    # need to be escaped: this is done by using two single quotes next to each
+    # other.
+    - match: '\b(if|else|for|while)\b'
+      scope: keyword.control.nc1
+
+  numbers:
+    - match: '(?<![0-9.])[0]+\.[0]+(?![0-9.])'
+      scope: comment.constant.numeric.nc1
+
+    - match: '{{number}}'
+      scope: constant.numeric.nc1
+
+  comments:
+    - match: '(\*\*)(DSTV\-NC\-VERSION\-8\-{{version8comment}})(=)(.*)$\n'
+      captures:
+        1: punctuation.definition.comment.begin.nc1
+        2: support.constant.nc1
+        3: keyword.operator.assignment.nc1
+        4: string.unquoted.nc1
+    # Comments begin with a '//' and finish at the end of the line.
+    - match: '\*\*'
+      scope: punctuation.definition.comment.nc1
+      push:
+        - meta_scope: comment.line.double-asterisk.nc1
+        - match: $\n?
+          pop: true
+
+  comment-line:
+    - meta_scope: comment.line.nc1
+    - match: $\n
+      pop: true
